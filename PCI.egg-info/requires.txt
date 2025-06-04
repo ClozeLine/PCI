@@ -1,0 +1,3 @@
+requests
+numpy
+violet-simulator>=0.2.4
