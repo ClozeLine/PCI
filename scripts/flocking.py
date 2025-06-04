@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from vi import Agent, Config, Simulation
-from scripts.config import BASE_DIR
+from config import BASE_DIR
 
 
 @dataclass
@@ -31,6 +31,6 @@ class FlockingAgent(Agent[FlockingConfig]):
     .batch_spawn_agents(
         count=100,
         agent_class=FlockingAgent,
-        images=BASE_DIR / "files" / "rainbolt_logo.png")
+        images=[str(BASE_DIR / "files" / "rainbolt_icon2.png")])
     .run()
 )
