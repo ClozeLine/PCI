@@ -7,10 +7,11 @@ Vector2 = pygame.math.Vector2
 
 @dataclass
 class FlockingConfig(Config):
-    alignment_weight: float = 0.1
-    cohesion_weight: float = 0.1
-    separation_weight: float = 20
-    mass: float = 2
+    alignment_weight: float = 0.5
+    cohesion_weight: float = 1
+    separation_weight: float = 100
+    obstacle_weight: float = 80
+    mass: float = 1
     max_speed: float = 2
 
 
@@ -23,11 +24,13 @@ class FlockingAgent(Agent):
         a = self.get_alignment()
         c = self.get_cohesion()
         s = self.get_separation()
+        w = self.get_obstacle_avoidance()
 
         f_total = (
-            self.config.alignment_weight*a +
-            self.config.cohesion_weight*c +
-            self.config.separation_weight*s
+            self.config.alignment_weight * a +
+            self.config.cohesion_weight * c +
+            self.config.separation_weight * s +
+            self.config.obstacle_weight * w
         ) / self.config.mass
 
         self.move += f_total * dt
@@ -36,6 +39,12 @@ class FlockingAgent(Agent):
 
         self.pos += self.move * dt
         self.there_is_no_escape()
+
+    def get_obstacle_avoidance(self) -> Vector2:
+        steer = Vector2()
+        for hit in self.obstacle_intersections(scale=1.3):
+            steer += self.move - hit
+        return steer
 
     def get_alignment(self):
         neighbour_move = [
@@ -76,13 +85,16 @@ class FlockingAgent(Agent):
 
 (
     Simulation(
-        # TODO: Modify `movement_speed` and `radius` and observe the change in behaviour.
         FlockingConfig(
-            image_rotation=True, movement_speed=1, radius=50, seed=1)
+            image_rotation=True, movement_speed=1, radius=150, seed=1)
     )
     .batch_spawn_agents(
         count=100,
         agent_class=FlockingAgent,
         images=[str(BASE_DIR / "files" / "rainbolt_icon2.png")])
+    .spawn_obstacle(
+        image_path=str(BASE_DIR / "files" / "line.png"),
+        x=375,
+        y=375)
     .run()
 )
