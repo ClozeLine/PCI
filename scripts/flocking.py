@@ -1,7 +1,6 @@
 import random
 from dataclasses import dataclass
 import numpy as np
-from vi.config import deserialize
 from vi import Agent, Config, Simulation
 from config import BASE_DIR
 import pygame
@@ -9,13 +8,12 @@ Vector2 = pygame.math.Vector2
 
 
 @dataclass
-@deserialize
 class FlockingConfig(Config):
-    alignment_weight: float = 0.1
-    cohesion_weight: float = 0.1
+    alignment_weight: float = 1
+    cohesion_weight: float = 0.01
     separation_weight: float = 20
-    mass: float = 1
-    max_speed: float = 2
+    mass: float = 2
+    max_speed: float = 10
 
 
 class FlockingAgent(Agent):
@@ -81,7 +79,7 @@ class FlockingAgent(Agent):
     Simulation(
         # TODO: Modify `movement_speed` and `radius` and observe the change in behaviour.
         FlockingConfig(
-            image_rotation=True, movement_speed=1, radius=50, seed=1)
+            image_rotation=True, movement_speed=1, radius=100, seed=1)
     )
     .batch_spawn_agents(
         count=100,
