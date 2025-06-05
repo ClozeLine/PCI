@@ -7,7 +7,7 @@ Vector2 = pygame.math.Vector2
 
 @dataclass
 class FlockingConfig(Config):
-    alignment_weight: float = 0.5
+    alignment_weight: float =0.1
     cohesion_weight: float = 1
     separation_weight: float = 100
     obstacle_weight: float = 80
@@ -42,8 +42,8 @@ class FlockingAgent(Agent):
 
     def get_obstacle_avoidance(self) -> Vector2:
         steer = Vector2()
-        for hit in self.obstacle_intersections(scale=1.3):
-            steer += self.move - hit
+        for hit in self.obstacle_intersections(scale=1.5):
+            steer += self.pos - hit
         return steer
 
     def get_alignment(self):
