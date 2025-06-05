@@ -1,6 +1,4 @@
-import random
 from dataclasses import dataclass
-import numpy as np
 from vi import Agent, Config, Simulation
 from config import BASE_DIR
 import pygame
@@ -9,33 +7,34 @@ Vector2 = pygame.math.Vector2
 
 @dataclass
 class FlockingConfig(Config):
-    alignment_weight: float = 1
+    alignment_weight: float = 0.1
     cohesion_weight: float = 0.1
     separation_weight: float = 20
     mass: float = 2
-    max_speed: float = 10
+    max_speed: float = 2
 
 
 class FlockingAgent(Agent):
 
     config: FlockingConfig
 
-    def change_position(self):
+    def change_position(self, dt: float = 1.0):
 
         a = self.get_alignment()
         c = self.get_cohesion()
         s = self.get_separation()
 
-        f_total = (self.config.alignment_weight*a + self.config.cohesion_weight*c
-                   + self.config.separation_weight*s) / self.config.mass
+        f_total = (
+            self.config.alignment_weight*a +
+            self.config.cohesion_weight*c +
+            self.config.separation_weight*s
+        ) / self.config.mass
 
-        self.move += f_total
-
+        self.move += f_total * dt
         if self.move.length() > self.config.max_speed:
             self.move.scale_to_length(self.config.max_speed)
 
-        self.pos += self.move
-
+        self.pos += self.move * dt
         self.there_is_no_escape()
 
     def get_alignment(self):
@@ -62,7 +61,7 @@ class FlockingAgent(Agent):
         centre = sum(neighbour_pos, Vector2()) / len(neighbour_pos)
         cohesion_force = centre - self.pos
 
-        return cohesion_force - self.move
+        return cohesion_force
 
     def get_separation(self):
         force = Vector2()
