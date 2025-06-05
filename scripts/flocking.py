@@ -91,7 +91,7 @@ class FlockingAgent(Agent):
     .batch_spawn_agents(
         count=100,
         agent_class=FlockingAgent,
-        images=[str(BASE_DIR / "files" / "rainbolt_icon2.png")])
+        images=[str(BASE_DIR / "files" / "fridge.png")])
     .spawn_obstacle(
         image_path=str(BASE_DIR / "files" / "line.png"),
         x=375,
