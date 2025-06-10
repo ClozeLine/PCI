@@ -7,7 +7,7 @@ Vector2 = pygame.math.Vector2
 
 @dataclass
 class FlockingConfig(Config):
-    alignment_weight: float =0.1
+    alignment_weight: float = 0.01
     cohesion_weight: float = 1
     separation_weight: float = 100
     obstacle_weight: float = 80
@@ -42,8 +42,8 @@ class FlockingAgent(Agent):
 
     def get_obstacle_avoidance(self) -> Vector2:
         steer = Vector2()
-        for hit in self.obstacle_intersections(scale=1.5):
-            steer += self.pos - hit
+        for hit in self.obstacle_intersections(scale=1.6):
+            steer += (self.pos - hit).normalize() / 0.1
         return steer
 
     def get_alignment(self):
@@ -91,7 +91,7 @@ class FlockingAgent(Agent):
     .batch_spawn_agents(
         count=100,
         agent_class=FlockingAgent,
-        images=[str(BASE_DIR / "files" / "fridge.png")])
+        images=[str(BASE_DIR / "files" / "rainbolt_icon2.png")])
     .spawn_obstacle(
         image_path=str(BASE_DIR / "files" / "line.png"),
         x=375,
