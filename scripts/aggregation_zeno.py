@@ -1,8 +1,8 @@
+from dataclasses import dataclass
 from vi import Agent, Config, Simulation
 from config import BASE_DIR
-import pygame
-
-Vector2 = pygame.math.Vector2
+from enum import Enum
+import math, random
 
 # idea for extra: make the agent FOV an angle, not a radius
 
@@ -15,95 +15,78 @@ Vector2 = pygame.math.Vector2
 # start wandering, then joining when site sensed (probability P-join -> takes into account n sites in range)
 # after joining, stays still after T-still time
 
-class FlockingConfig(Config):
-    alignment_weight: float = 0.01
-    cohesion_weight: float = 1
-    separation_weight: float = 100
-    obstacle_weight: float = 80
-    mass: float = 1
+# run min. 30 times (maybe change the seed each time)
+
+config = Config()
+x, y = config.window.as_tuple()
+print(x, y)
+
+
+def p_join(n, alpha):
+    return 1 - math.exp(-alpha * n)
+
+
+def p_leave(n, beta):
+    return math.exp(-beta * n)
+
+
+class State(Enum):
+    WANDERING = 0
+    JOINING = 1
+    STILL = 2
+    LEAVING = 3
+
+
+@dataclass
+class CockroachConfig(Config):
     max_speed: float = 2
+    obstacle_weight: float = 80
+    alpha: float = 0.4
+    beta: float = 0.6
+    join_time: int = 50
+    leave_time: int = 50
+    density_threshold: int = 4
 
 
-class FlockingAgent(Agent):
+class CockroachAgent(Agent):
+    aggregate: bool = False
 
-    config: FlockingConfig
+    config: CockroachConfig
+
+    state: str = 'wandering'
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.state = State.WANDERING
+        self.join_timer = 0
+        self.leave_timer = 0
 
     def change_position(self, dt: float = 1.0):
-
-        a = self.get_alignment()
-        c = self.get_cohesion()
-        s = self.get_separation()
-        w = self.get_obstacle_avoidance()
-
-        f_total = (
-            self.config.alignment_weight * a +
-            self.config.cohesion_weight * c +
-            self.config.separation_weight * s +
-            self.config.obstacle_weight * w
-        ) / self.config.mass
-
-        self.move += f_total * dt
-        if self.move.length() > self.config.max_speed:
-            self.move.scale_to_length(self.config.max_speed)
-
-        self.pos += self.move * dt
         self.there_is_no_escape()
 
-    def get_obstacle_avoidance(self) -> Vector2:
-        steer = Vector2()
-        for hit in self.obstacle_intersections(scale=1.6):
-            steer += (self.pos - hit).normalize() / 0.1
-        return steer
+    def neighbors_in_radius(self):
+        return self.in_proximity_accuracy()
 
-    def get_alignment(self):
-        neighbour_move = [
-            agent.move
-            for agent in self.in_proximity_performance()
-            if agent is not self
-        ]
-        if not neighbour_move:
-            return Vector2()
+    def update(self) -> None:
 
-        v_mean = sum(neighbour_move, Vector2()) / len(neighbour_move)
-        return v_mean - self.move
+        if self.on_site():
+            self.freeze_movement()
+        else:
+            self.pos += self.move * 2
 
-    def get_cohesion(self):
-        neighbour_pos = [
-            agent.pos
-            for agent in self.in_proximity_performance()
-            if agent is not self
-        ]
-        if not neighbour_pos:
-            return Vector2()
-
-        centre = sum(neighbour_pos, Vector2()) / len(neighbour_pos)
-        cohesion_force = centre - self.pos
-
-        return cohesion_force
-
-    def get_separation(self):
-        force = Vector2()
-        for agent in self.in_proximity_performance():
-            if agent is self:
-                continue
-            offset = self.pos - agent.pos
-            dist_sq = offset.length_squared() or 1
-            force += offset / dist_sq
-        return force
-    
 
 (
     Simulation(
-        FlockingConfig(
+        CockroachConfig(
             image_rotation=True, movement_speed=1, radius=150, seed=1)
     )
-    .batch_spawn_agents(
-        count=100,
-        agent_class=FlockingAgent,
-        images=[str(BASE_DIR / "files" / "rainbolt_icon2.png")])
-    .spawn_obstacle(
-        image_path=str(BASE_DIR / "files" / "frame.png"),
+    .spawn_site(
+        image_path=str(BASE_DIR / "files" / "circle_copy.png"),
         x=375,
         y=375)
+    .batch_spawn_agents(
+        count=100,
+        agent_class=CockroachAgent,
+        images=[str(BASE_DIR / "files" / "rainbolt_icon2.png")])
     .run()
 )

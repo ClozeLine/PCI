@@ -67,7 +67,9 @@ class CockroachAgent(Agent):
         return self.in_proximity_performance()
 
     def update(self) -> None:
-        neighbors_in_rad: int = self.neighbors_in_radius().count()
+        neighbors_in_rad: int = 0
+        for _ in self.neighbors_in_radius():
+            neighbors_in_rad += 1
         inside_site = self.on_site()
         sites_exist = True if self.count_sites() else False
 
