@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from vi import Agent, Config, Simulation
+from vi.simulation import Shared
 from config import BASE_DIR
 from enum import Enum
 import math, random
@@ -47,15 +48,24 @@ class CockroachConfig(Config):
     leave_time: int = 6
     density_threshold: int = 4
 
+site_count = 0
+
 
 class CockroachAgent(Agent):
     config: CockroachConfig
+
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.state = State.WANDERING
         self.join_timer = 0
         self.leave_timer = 0
+        self.time = 0
+        self.shared.site_count_0 = 0
+        self.shared.site_count_1 = 0
+        self.updated = False
+        self.migrated = False
+        self.wrong_spot = None
 
     def count_sites(self):
         return self._sites
@@ -67,6 +77,45 @@ class CockroachAgent(Agent):
         return self.in_proximity_performance()
 
     def update(self) -> None:
+
+        self.time += 1
+
+        if self.time >= 2000 and self.on_site() and self.updated == False:
+            if self.on_site_id() == 0:
+                self.shared.site_count_0 += 1
+            else:
+                self.shared.site_count_1 += 1
+
+            self.updated = True
+
+        if self.time >= 2002 and self.on_site_id() == 0 and self.migrated == False:
+            if self.shared.site_count_0 < 50:
+                self.state = State.LEAVING
+
+            self.migrated = True
+
+            self.wrong_spot = 0
+
+        elif self.time >= 2002 and self.on_site_id() == 1 and self.migrated == False:
+            if self.shared.site_count_1 < 50:
+                self.state = State.LEAVING
+
+            self.migrated = True
+            self.wrong_spot = 1
+
+        """
+        self.time += 0
+
+        if self.time == 150 and self.on_site():
+            #self.shared.site_count += 1
+            site_id = self.on_site_id()
+            if site_id != 0:
+                print(site_id)
+
+        if self.time > 150:
+            print(self.shared.site_count)
+        """
+        
         neighbors_in_rad: int = 0
         for _ in self.neighbors_in_radius():
             neighbors_in_rad += 1
@@ -77,8 +126,10 @@ class CockroachAgent(Agent):
         if self.state is State.WANDERING:
             self.pos += self.move
             if sites_exist and inside_site and random.random() < p_join(neighbors_in_rad, self.config.alpha):
-                self.state = State.JOINING
-                self.join_timer = self.config.join_time
+
+                if self.on_site_id() != self.wrong_spot:
+                    self.state = State.JOINING
+                    self.join_timer = self.config.join_time
 
         # joining
         elif self.state is State.JOINING:

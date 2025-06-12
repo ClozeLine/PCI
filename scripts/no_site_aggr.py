@@ -114,14 +114,6 @@ class CockroachAgent(Agent):
         CockroachConfig(
             image_rotation=True, movement_speed=2, radius=150, seed=1)
     )
-    .spawn_site(
-        image_path=str(BASE_DIR / "files" / "circle_big.png"),
-        x=200,
-        y=375)
-    .spawn_site(
-        image_path=str(BASE_DIR / "files" / "circle_big.png"),
-        x=575,
-        y=375)
     .batch_spawn_agents(
         count=100,
         agent_class=CockroachAgent,
