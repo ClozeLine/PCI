@@ -70,13 +70,13 @@ class CockroachAgent(Agent):
         neighbors_in_rad: int = 0
         for _ in self.neighbors_in_radius():
             neighbors_in_rad += 1
-        inside_site = self.on_site()
-        sites_exist = True if self.count_sites() else False
+        inside_site = True if neighbors_in_rad >= 15 else False
+
 
         # wandering
         if self.state is State.WANDERING:
             self.pos += self.move
-            if sites_exist and inside_site and random.random() < p_join(neighbors_in_rad, self.config.alpha):
+            if inside_site and random.random() < p_join(neighbors_in_rad, self.config.alpha):
                 self.state = State.JOINING
                 self.join_timer = self.config.join_time
 
@@ -112,16 +112,8 @@ class CockroachAgent(Agent):
 (
     Simulation(
         CockroachConfig(
-            image_rotation=True, movement_speed=2, radius=150, seed=1)
+            image_rotation=True, movement_speed=2, radius=120)
     )
-    .spawn_site(
-        image_path=str(BASE_DIR / "files" / "circle_big.png"),
-        x=200,
-        y=375)
-    .spawn_site(
-        image_path=str(BASE_DIR / "files" / "circle_big.png"),
-        x=575,
-        y=375)
     .batch_spawn_agents(
         count=100,
         agent_class=CockroachAgent,

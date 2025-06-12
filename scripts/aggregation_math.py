@@ -163,7 +163,7 @@ class CockroachAgent(Agent):
 (
     Simulation(
         CockroachConfig(
-            image_rotation=True, movement_speed=2, radius=150, seed=1)
+            image_rotation=True, movement_speed=2, radius=150)
     )
     .spawn_site(
         image_path=str(BASE_DIR / "files" / "circle_big.png"),
