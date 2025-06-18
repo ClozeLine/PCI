@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from vi import Agent, Config, Simulation
 from pygame.math import Vector2
 import random
+from enum import Enum
 import polars as pl
 import pygame
 import numpy
@@ -19,7 +20,7 @@ precomputed_angles = [random.uniform(0, 2 * numpy.pi) for _ in range(1000)]
 
 def calc_LJ_force(distance, epsilon=100, sigma=0.01):
     if distance == 0:
-        return 0  # Avoid division by zero
+        return 0
     return 24 * epsilon * (2 * (sigma / distance) ** 13 - (sigma / distance) ** 7)
 
 
@@ -27,10 +28,14 @@ def calc_LJ_force(distance, epsilon=100, sigma=0.01):
 class PredatorPreyConfig(Config):
     prey_speed = 1
     predator_speed = 1
-    pass
+
+
+class PredatorState(Enum):
+    WANDERING = 0
 
 
 class PredatorAgent(Agent):
+
     def __init__(self, images, simulation, pos=None, move=None):
         super().__init__(images, simulation, pos, move)
         self.move = pygame.Vector2(random.uniform(-1, 1), random.uniform(-1, 1))
@@ -140,10 +145,11 @@ class PreyAgent(Agent):
 
 
 class PlantAgent(Agent):
+
     def __init__(self, images, simulation, pos=None, move=None):
         super().__init__(images, simulation, pos, move)
         self.counter = 0
-        self.maxCount = 200  # random.randint(190,210)
+        self.maxCount = 200
         self.angle_index = 0
 
     def update(self):
