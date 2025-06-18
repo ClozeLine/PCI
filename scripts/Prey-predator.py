@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from vi import Agent, Config, Simulation
 from pygame.math import Vector2
 import random
+<<<<<<< HEAD
 #import polars as pl
 #import seaborn as sns
 import pygame

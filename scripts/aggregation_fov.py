@@ -43,9 +43,10 @@ class CockroachConfig(Config):
     obstacle_weight: float = 80
     alpha: float = 0.5
     beta: float = 0.6
-    join_time: int = 10
-    leave_time: int = 10
+    join_time: int = 5
+    leave_time: int = 6
     density_threshold: int = 4
+    fov: int = 90
 
 
 class CockroachAgent(Agent):
@@ -64,7 +65,13 @@ class CockroachAgent(Agent):
         self.there_is_no_escape()
 
     def neighbors_in_radius(self):
-        return self.in_proximity_performance()
+        half = self.config.fov / 2
+        for other in self.in_proximity_performance():
+            vec = other.pos - self.pos
+            if not vec.length_squared():
+                continue
+            if abs(self.move.angle_to(vec)) <= half:
+                yield other
 
     def update(self) -> None:
         neighbors_in_rad: int = 0
@@ -114,16 +121,16 @@ class CockroachAgent(Agent):
 (
     Simulation(
         CockroachConfig(
-            image_rotation=True, movement_speed=2, radius=40, seed=1)
+            image_rotation=True, movement_speed=2, radius=50, seed=10)
     )
-    # .spawn_site(
-    #     image_path=str(BASE_DIR / "files" / "circle_big.png"),
-    #     x=200,
-    #     y=375)
-    # .spawn_site(
-    #     image_path=str(BASE_DIR / "files" / "circle.png"),
-    #     x=575,
-    #     y=375)
+    .spawn_site(
+        image_path=str(BASE_DIR / "files" / "circle_big.png"),
+        x=200,
+        y=375)
+    .spawn_site(
+        image_path=str(BASE_DIR / "files" / "circle.png"),
+        x=575,
+        y=375)
     .batch_spawn_agents(
         count=100,
         agent_class=CockroachAgent,

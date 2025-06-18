@@ -112,7 +112,7 @@ class CockroachAgent(Agent):
 (
     Simulation(
         CockroachConfig(
-            image_rotation=True, movement_speed=2, radius=120)
+            image_rotation=True, movement_speed=2, radius=120, seed=100202)
     )
     .batch_spawn_agents(
         count=100,
