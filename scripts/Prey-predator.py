@@ -1,20 +1,12 @@
 from dataclasses import dataclass
-
 from vi import Agent, Config, Simulation
 from pygame.math import Vector2
 import random
 import polars as pl
-import seaborn as sns
 import pygame
 import numpy
 
-seed = 2
-random.seed(seed)
-
 precomputed_angles = [random.uniform(0, 2 * numpy.pi) for _ in range(1000)]
-
-
-#countList = [[],[]]
 
 def calc_LJ_force(distance, epsilon=100, sigma=0.01):
     if distance == 0:
@@ -182,7 +174,7 @@ class PlantAgent(Agent[PredatorPreyConfig]):
 (
     Simulation(
         # TODO: Modify `movement_speed` and `radius` and observe the change in behaviour.
-        PredatorPreyConfig(image_rotation=True, movement_speed=1, radius=50, seed=seed, fps_limit=60, ), #duration=10 *60 
+        PredatorPreyConfig(image_rotation=True, movement_speed=1, radius=50, seed=1, fps_limit=60, ), #duration=10 *60
          
     )
     
