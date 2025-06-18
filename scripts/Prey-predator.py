@@ -1,21 +1,16 @@
 from dataclasses import dataclass
-
 from vi import Agent, Config, Simulation
 from pygame.math import Vector2
 import random
-<<<<<<< HEAD
-#import polars as pl
-#import seaborn as sns
+
+import polars as pl
+import seaborn as sns
 import pygame
 import numpy
 
-seed = 2
-random.seed(seed)
+
 
 precomputed_angles = [random.uniform(0, 2 * numpy.pi) for _ in range(1000)]
-
-
-#countList = [[],[]]
 
 def calc_LJ_force(distance, epsilon=100, sigma=0.01):
     if distance == 0:
@@ -58,6 +53,8 @@ class PredatorAgent(Agent[PredatorPreyConfig]):
                     if self.food >= 150:
                         self.food -= 50
                         self.reproduce()
+
+        self.save_data("agent", "Predator")
 
         if self.food <= 0:
             self.kill()
@@ -116,6 +113,7 @@ class PreyAgent(Agent[PredatorPreyConfig]):
                         self.reproduce()
                     other[0].kill()
 
+        self.save_data("agent", "Prey")
         if self.id == 11:
             self.change_image(1)
             #print(pygame.mouse.get_pos())
@@ -170,31 +168,53 @@ class PlantAgent(Agent[PredatorPreyConfig]):
                 self.pos += 10 * direction
             
             self.counter = 0
-
+        self.save_data("agent", "Plant")
         self.counter+=1
 
     def change_position(self):
         pass
-        
-            
-            
-    
 
-(
+
+
+
+
+data = (
     Simulation(
         # TODO: Modify `movement_speed` and `radius` and observe the change in behaviour.
-        PredatorPreyConfig(image_rotation=True, movement_speed=1, radius=50, seed=seed, fps_limit=60, ), #duration=10 *60 
-         
+        PredatorPreyConfig(image_rotation=True, movement_speed=1, radius=50, seed=1, fps_limit=60, duration=10 *60)
+        
     )
     
-    .batch_spawn_agents(10, PredatorAgent, images=["images/Target1.png", "images/Target6.png"])
-    .batch_spawn_agents(100, PreyAgent, images=["images/triangle.png", "images/Target5.png"])
-    .batch_spawn_agents(100, PlantAgent, images=["images/plant.png"])
+    .batch_spawn_agents(10, PredatorAgent, images=["files/Target1.png", "files/Target6.png"])
+    .batch_spawn_agents(100, PreyAgent, images=["files/triangle.png", "files/Target5.png"])
+    .batch_spawn_agents(100, PlantAgent, images=["files/plant.png"])
     .run()
+    .snapshots
 )
 
-#countDataFrame = pl.DataFrame(countList)
-#print(countDataFrame)
+summary = (
+    data.filter(pl.col("frame") % 60 == 0)
+        .with_columns((pl.col("frame") // 60).alias("second"))
+        .group_by("second")
+        .agg([
+            pl.col("agent").filter(pl.col("agent") == "Predator").count().alias("predator_count"),
+            pl.col("agent").filter(pl.col("agent") == "Prey").count().alias("prey_count"),
+        ])
+        .sort("second")
+)
 
-#plot = sns.relplot(countDataFrame, x=countDataFrame['column_0'], y=countDataFrame['column_1'])
-#plot.savefig('agents.png', dpi=300)
+
+print(summary)
+
+import seaborn as sns
+import matplotlib.pyplot as plt
+
+sns.lineplot(summary, x='second', y='predator_count', label='Predator')
+sns.lineplot(summary, x='second', y='prey_count', label='Prey')
+
+plt.xlabel('Second')
+plt.ylabel('Count')
+plt.legend()
+plt.show()
+
+plt.savefig('agents.png', dpi=300)
