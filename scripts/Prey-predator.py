@@ -3,8 +3,8 @@ from dataclasses import dataclass
 from vi import Agent, Config, Simulation
 from pygame.math import Vector2
 import random
-import polars as pl
-import seaborn as sns
+#import polars as pl
+#import seaborn as sns
 import pygame
 import numpy
 
