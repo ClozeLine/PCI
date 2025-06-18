@@ -47,7 +47,7 @@ class PredatorAgent(Agent[PredatorPreyConfig]):
         for other in self.in_proximity_accuracy():
             if type(other[0]) == PreyAgent:
                 if self.pos.distance_to(other[0].pos) <= 10:
-                    #print("plant")
+                    
                     self.food += 75
                     other[0].kill()
                     if self.food >= 150:
@@ -59,7 +59,7 @@ class PredatorAgent(Agent[PredatorPreyConfig]):
         if self.food <= 0:
             self.kill()
 
-        self.food -= 0.3
+        self.food -= 0.25
         self.previous_state = self.state
 
     def change_position(self):
@@ -172,11 +172,11 @@ class PlantAgent(Agent[PredatorPreyConfig]):
         self.counter+=1
 
     def change_position(self):
-        pass
-
-
-
-
+        self.there_is_no_escape()
+        
+            
+            
+    
 
 data = (
     Simulation(
