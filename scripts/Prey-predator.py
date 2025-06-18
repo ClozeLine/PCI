@@ -43,7 +43,7 @@ class PredatorAgent(Agent[PredatorPreyConfig]):
         for other in self.in_proximity_accuracy():
             if type(other[0]) == PreyAgent:
                 if self.pos.distance_to(other[0].pos) <= 10:
-                    #print("plant")
+                    
                     self.food += 75
                     other[0].kill()
                     if self.food >= 150:
@@ -53,7 +53,7 @@ class PredatorAgent(Agent[PredatorPreyConfig]):
         if self.food <= 0:
             self.kill()
 
-        self.food -= 0.3
+        self.food -= 0.25
         self.previous_state = self.state
 
     def change_position(self):
@@ -165,7 +165,7 @@ class PlantAgent(Agent[PredatorPreyConfig]):
         self.counter+=1
 
     def change_position(self):
-        pass
+        self.there_is_no_escape()
         
             
             
@@ -174,13 +174,13 @@ class PlantAgent(Agent[PredatorPreyConfig]):
 (
     Simulation(
         # TODO: Modify `movement_speed` and `radius` and observe the change in behaviour.
-        PredatorPreyConfig(image_rotation=True, movement_speed=1, radius=50, seed=1, fps_limit=60, ), #duration=10 *60
+        PredatorPreyConfig(image_rotation=True, movement_speed=1, radius=50, seed=1, fps_limit=0, ), #duration=10 *60
          
     )
     
-    .batch_spawn_agents(10, PredatorAgent, images=["images/Target1.png", "images/Target6.png"])
-    .batch_spawn_agents(100, PreyAgent, images=["images/triangle.png", "images/Target5.png"])
-    .batch_spawn_agents(100, PlantAgent, images=["images/plant.png"])
+    .batch_spawn_agents(10, PredatorAgent, images=["files/Target1.png", "files/Target6.png"])
+    .batch_spawn_agents(100, PreyAgent, images=["files/triangle.png", "files/Target5.png"])
+    .batch_spawn_agents(100, PlantAgent, images=["files/plant.png"])
     .run()
 )
 
