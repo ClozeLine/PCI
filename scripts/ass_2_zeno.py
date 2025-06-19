@@ -34,7 +34,7 @@ class PredatorPreyConfig(Config):
     # prey config
     prey_speed = 1
     prey_food_decrease = 0.05
-    prey_food_on_eat = 10
+    prey_food_on_eat = 20
     prey_fleeing_speed_increase = 1.1
 
     # plant

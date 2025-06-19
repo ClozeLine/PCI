@@ -84,6 +84,7 @@ class PredatorAgent(Agent):
         
 
 class PreyAgent(Agent):
+    CALORIES_GAINED: int = 15
     def __init__(self, images, simulation, pos = None, move = None):
         super().__init__(images, simulation, pos, move)
         self.move = pygame.Vector2(random.uniform(-1,1),random.uniform(-1,1))
@@ -107,7 +108,7 @@ class PreyAgent(Agent):
             if type(other[0]) == PlantAgent:
                 if self.pos.distance_to(other[0].pos) <= 10:
                     #print("plant")
-                    self.food += 15
+                    self.food += self.CALORIES_GAINED
                     if self.food >= 150:
                         self.food -= 50
                         self.reproduce()

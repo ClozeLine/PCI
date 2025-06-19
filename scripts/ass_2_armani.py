@@ -13,14 +13,14 @@ import matplotlib.pyplot as plt
 
 precomputed_angles = [random.uniform(0, 2 * numpy.pi) for _ in range(1000)]
 PLANT_COUNTER = 35
-PREY_COUNTER = 100
-PREDATOR_COUNTER = 30
+PREY_COUNTER = 20
+PREDATOR_COUNTER = 10
 
 database_prey = [
-    {"frame": 0, "count": 100}
+    {"frame": 0, "count": PREY_COUNTER}
 ]
 database_predator = [
-    {"frame": 0, "count": 35}
+    {"frame": 0, "count": PREDATOR_COUNTER}
 ]
 
 
@@ -33,14 +33,14 @@ class PredatorPreyConfig(Config):
 
     # predator config
     predator_speed = 1
-    predator_food_decrease = 0.05
-    predator_food_on_eat = 20
-    predator_chasing_speed_increase = 1
+    predator_food_decrease = 0.2
+    predator_food_on_eat = 60
+    predator_chasing_speed_increase = 1.4
 
     # prey config
     prey_speed = 1
     prey_food_decrease = 0.05
-    prey_food_on_eat = 10
+    prey_food_on_eat = 5
     prey_fleeing_speed_increase = 1.1
 
     # plant
@@ -109,6 +109,9 @@ class PredatorAgent(Agent):
         last_frame_nr = database_predator[-1]["frame"]
         new_entry = {"frame": last_frame_nr + 1, "count": PREDATOR_COUNTER}
         database_predator.append(new_entry)
+
+        self.save_data("PredCount", PREDATOR_COUNTER)
+        self.save_data("PreyCount", PREY_COUNTER)
 
     def calculate_speed(self):
         if self.move.length() > 0:
@@ -222,6 +225,9 @@ class PreyAgent(Agent):
         new_entry = {"frame": last_frame_nr + 1, "count": PREY_COUNTER}
         database_prey.append(new_entry)
 
+        self.save_data("PredCount", PREDATOR_COUNTER)
+        self.save_data("PreyCount", PREY_COUNTER)
+
     def calculate_speed(self):
         x = self.food / self.config.max_food
         new_move = self.move #* (0.6 + (1 - 0.6) * (x ** 2))
@@ -277,15 +283,18 @@ class PlantAgent(Agent):
             self.counter = 0
         self.counter += 1
 
+        self.save_data("PredCount", PREDATOR_COUNTER)
+        self.save_data("PreyCount", PREY_COUNTER)
+
     def change_position(self):
         pass
 
 
 class PlantSpawner(PlantAgent):
 
-    MIN_PLANTS = 15
-    BURST_SIZE = 5
-    CHECK_EVERY = 120
+    MIN_PLANTS = 50
+    BURST_SIZE = 7
+    CHECK_EVERY = 30
 
     def update(self):
         global PLANT_COUNTER
@@ -308,7 +317,7 @@ class PlantSpawner(PlantAgent):
             self.counter = 0
 
 
-(
+df = (
     Simulation(
         # TODO: Modify `movement_speed` and `radius` and observe the change in behaviour.
         PredatorPreyConfig(
@@ -317,33 +326,37 @@ class PlantSpawner(PlantAgent):
             radius=50,
             seed=1,
             fps_limit=60,
-            duration=10000),
+            duration=3000),
 
     )
 
     .batch_spawn_agents(PREDATOR_COUNTER, PredatorAgent, images=["../files/Target1.png", "../files/Target6.png"])
     .batch_spawn_agents(PREY_COUNTER, PreyAgent, images=["../files/triangle.png", "../files/Target5.png"])
     .batch_spawn_agents(PLANT_COUNTER, PlantAgent, images=["../files/plant.png"])
-    .run()
+    .run().snapshots
 )
 
-df1 = pl.DataFrame(database_prey)
-df2 = pl.DataFrame(database_predator)
+filtered_df = df.filter(pl.col("id") == 1)
 
-plt.plot(df1["frame"], df1["count"], label="Stat A (Preys)")
-plt.plot(df2["frame"], df2["count"], label="Stat B (Predators)")
 
-plt.xlabel("Frame")
-plt.ylabel("Value")
-plt.title("Two Stats Over Time")
+print(filtered_df)
+
+plt.figure(figsize=(10, 6))
+
+# Plot PredCount
+plt.plot(filtered_df['frame'], filtered_df['PredCount'], label='PredCount')
+
+# Plot PreyCount
+plt.plot(filtered_df['frame'], filtered_df['PreyCount'], label='PreyCount')
+
+# Add labels and title
+plt.xlabel('Frame')
+plt.ylabel('Count')
+plt.title('Predator and Prey Counts Over Time')
 plt.legend()
 plt.grid(True)
 plt.tight_layout()
+plt.savefig("agent_count")
 
-plt.savefig("agent_count_plot.png")
-
-# countDataFrame = pl.DataFrame(countList)
-# print(countDataFrame)
-
-# plot = sns.relplot(countDataFrame, x=countDataFrame['column_0'], y=countDataFrame['column_1'])
-# plot.savefig('agents.png', dpi=300)
+print(PREDATOR_COUNTER)
+print(PREY_COUNTER)
