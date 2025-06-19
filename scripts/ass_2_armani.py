@@ -15,15 +15,9 @@ import pygame
 import numpy
 
 precomputed_angles = [random.uniform(0, 2 * numpy.pi) for _ in range(1000)]
-PLANT_COUNTER = 10
+PLANT_COUNTER = 35
 PREY_COUNTER = 100
-PREDATOR_COUNTER = 10
-
-
-def calc_LJ_force(distance, epsilon=100, sigma=0.01):
-    if distance == 0:
-        return 0
-    return 24 * epsilon * (2 * (sigma / distance) ** 13 - (sigma / distance) ** 7)
+PREDATOR_COUNTER = 20
 
 
 @dataclass
@@ -34,16 +28,18 @@ class PredatorPreyConfig(Config):
 
     # predator config
     predator_speed = 1
-    attack_speed_increase = 1.3
-    predator_food_on_eat = 45
+    predator_food_decrease = 0.1
+    predator_food_on_eat = 20
+    predator_chasing_speed_increase = 1.3
 
     # prey config
-    prey_speed = 1
-    escape_speed_increase = 1.3
+    prey_speed = 2
+    prey_food_decrease = 0.05
     prey_food_on_eat = 10
+    prey_fleeing_speed_increase = 1.5
 
     # plant
-    max_plants = 150
+    max_plants = 200
 
 
 class PredatorState(Enum):
@@ -54,6 +50,7 @@ class PredatorState(Enum):
 class PreyState(Enum):
     WANDERING = 0
     FLEEING = 1
+    EATING = 2
 
 
 class PredatorAgent(Agent):
@@ -73,7 +70,8 @@ class PredatorAgent(Agent):
 
         for agent in self.in_proximity_accuracy():
             if isinstance(agent[0], PreyAgent):
-                if self.pos.distance_to(agent[0].pos) <= 10:
+                dist_to_prey = self.pos.distance_to(agent[0].pos)
+                if dist_to_prey <= 10:
                     self.food += self.config.predator_food_on_eat
                     agent[0].kill()
                     PREY_COUNTER -= 1
@@ -81,17 +79,24 @@ class PredatorAgent(Agent):
                         self.food = self.config.max_food
                         self.reproduce()
                         PREDATOR_COUNTER += 1
+                if 10 < dist_to_prey <= 50:
+                    self.state = PredatorState.CHASING
+                    self.move = (agent[0].pos - self.pos).normalize()
+                    break
 
         if self.food <= 0:
             self.kill()
             PREDATOR_COUNTER -= 1
 
-        self.food -= 0.3
+        self.food -= self.config.predator_food_decrease
         self.previous_state = self.state
 
     def calculate_speed(self):
-        factor = (self.food / self.config.max_food) * 100
-        return self.move
+        x = self.food / self.config.max_food
+        new_move = self.move * (0.8 + (1 - 0.8) * (x ** 2))
+        if self.state == PredatorState.CHASING:
+            new_move *= self.config.predator_chasing_speed_increase
+        return new_move
 
     def change_position(self):
         self.there_is_no_escape()
@@ -122,26 +127,59 @@ class PreyAgent(Agent):
     def update(self):
         global PLANT_COUNTER, PREY_COUNTER
 
-        if self.state == PreyState.WANDERING:
-            pass
+        self.previous_state = self.state
+        self.state = PreyState.WANDERING
+
+        nearest_predator = None
+        nearest_plant = None
+        min_pred_dist = float("inf")
+        min_plant_dist = float("inf")
 
         for agent in self.in_proximity_accuracy():
-            if isinstance(agent[0], PlantAgent):
-                if self.pos.distance_to(agent[0].pos) <= 10:
-                    self.food += self.config.prey_food_on_eat
-                    if self.food > self.config.max_food:
-                        self.food = self.config.max_food
-                        self.reproduce()
-                        PREY_COUNTER += 1
-                    agent[0].kill()
-                    PLANT_COUNTER -= 1
+            other = agent[0]
+            if isinstance(other, PredatorAgent):
+                dist = self.pos.distance_to(other.pos)
+                if dist < min_pred_dist and dist <= 50:
+                    nearest_predator = other
+                    min_pred_dist = dist
+            if isinstance(other, PlantAgent):
+                dist = self.pos.distance_to(other.pos)
+                if dist < min_plant_dist:
+                    nearest_plant = other
+                    min_plant_dist = dist
 
+            # either avoid predator, or move towards food
+            if nearest_predator:
+                self.state = PreyState.FLEEING
+                self.move = (self.pos - nearest_predator.pos).normalize()
+            elif nearest_plant and min_plant_dist <= 50:
+                self.state = PreyState.EATING
+                self.move = (nearest_plant.pos - self.pos).normalize()
+
+            # try to eat if close to plant
+            if nearest_plant and self.pos.distance_to(nearest_plant.pos) <= 10:
+                self.food += self.config.prey_food_on_eat
+                if self.food > self.config.max_food:
+                    self.food = self.config.max_food
+                    self.reproduce()
+                    PREY_COUNTER += 1
+                nearest_plant.kill()
+                PLANT_COUNTER -= 1
+
+        # starvation
         if self.food <= 0:
             self.kill()
             PREY_COUNTER -= 1
 
-        self.food -= 0.1
+        self.food -= self.config.prey_food_decrease
         self.previous_state = self.state
+
+    def calculate_speed(self):
+        x = self.food / self.config.max_food
+        new_move = self.move * (0.6 + (1 - 0.6) * (x ** 2))
+        if self.state == PreyState.FLEEING:
+            new_move *= self.config.prey_fleeing_speed_increase
+        return new_move
 
     def change_position(self):
         self.there_is_no_escape()
@@ -153,11 +191,8 @@ class PreyAgent(Agent):
             if self.move.length() >= 0.8 and self.move.length() != 0:
                 self.move = self.move.normalize()
 
-        else:
-            print(f"State Error: state is {self.state}")
-
         self.last_move = self.move
-        self.pos += self.move
+        self.pos += self.calculate_speed()
 
 
 class PlantAgent(Agent):
@@ -167,13 +202,14 @@ class PlantAgent(Agent):
         super().__init__(images, simulation, pos, move)
         self.counter = 0
         self.angle_index = 0
+        self.reproduction_threshold = random.randint(100, 300)
 
     def update(self):
         global PLANT_COUNTER
-        print(PLANT_COUNTER)
-        if self.counter == self.config.max_food and PLANT_COUNTER < self.config.max_plants:
+        if self.counter >= self.reproduction_threshold and PLANT_COUNTER < self.config.max_plants:
             self.reproduce()
             PLANT_COUNTER += 1
+            print(PLANT_COUNTER)
 
             if random.random() < 0.5:
                 self.pos = pygame.math.Vector2(random.randint(0, 750, ), random.randint(0, 750))
