@@ -254,43 +254,43 @@ class PlantAgent(Agent):
                 self.pos = Vector2(random.randint(0, 750), random.randint(0, 750))
             self.counter = 0
         self.counter += 1
-        print(type(self.simulation))
-        if self.id == 0 and self.simulation.ticks % 120 == 0:
-            if PLANT_COUNTER < 15:
-                for _ in range(5):
-                    self.simulation.spawn_agent(
-                        PlantAgent,
-                        pos=Vector2(random.randint(0, 750), random.randint(0, 750)),
-                        images=["../files/plant.png"]
-                    )
-                    PLANT_COUNTER += 1
 
     def change_position(self):
         pass
 
 
-class PlantSpawner(Agent):
-    """Invisible caretaker that keeps at least MIN_PLANTS alive."""
-    config: PredatorPreyConfig
-    MIN_PLANTS   = 15          # keep this many alive
-    CHECK_EVERY  = 120         # ticks between checks    (~2 s at 60 fps)
-    BURST_SIZE   = 5           # how many seeds to drop
+class PlantSpawner(PlantAgent):
+    """Immortal plant that reseeds the world whenever plants get too low."""
+
+    MIN_PLANTS = 15  # keep at least this many alive
+    BURST_SIZE = 5  # how many seeds to drop at once
+    CHECK_EVERY = 120  # ticks between checks  (~2 s at 60 fps)
 
     def update(self):
         global PLANT_COUNTER
-        # run the check on schedule
-        if self.simulation.ticks % self.CHECK_EVERY == 0:
-            if PLANT_COUNTER < self.MIN_PLANTS:
-                seeds = min(self.BURST_SIZE,
-                            self.config.max_plants - PLANT_COUNTER)
-                for _ in range(seeds):
-                    self.simulation.spawn_agent(
-                        PlantAgent,
-                        pos=Vector2(random.randint(0, 750),
-                                    random.randint(0, 750)),
-                        images=["../files/plant.png"]
-                    )
-                    PLANT_COUNTER += 1
+
+        # call PlantAgent.update() so the spawner can still reproduce normally
+        super().update()
+
+        # run the seed-rain logic on schedule
+        if self.counter % self.CHECK_EVERY == 0 and PLANT_COUNTER < self.MIN_PLANTS:
+            seeds = min(self.BURST_SIZE,
+                        self.config.max_plants - PLANT_COUNTER)
+
+            for _ in range(seeds):
+                # clone myself            ↓ returns the new PlantAgent
+                new_plant = self.reproduce()
+                PLANT_COUNTER += 1
+
+                # scatter the seed randomly
+                new_plant.pos = pygame.Vector2(
+                    random.randint(0, 750),
+                    random.randint(0, 750)
+                )
+
+            # optional: reset the spawner’s counter so its own normal
+            # reproduction doesn’t immediately fire again
+            self.counter = 0
 
 
 (
