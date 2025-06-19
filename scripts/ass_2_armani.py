@@ -30,7 +30,7 @@ class PredatorPreyConfig(Config):
     predator_speed = 1
     predator_food_decrease = 0.1
     predator_food_on_eat = 20
-    predator_chasing_speed_increase = 1.3
+    predator_chasing_speed_increase = 1.5
 
     # prey config
     prey_speed = 2
@@ -60,6 +60,7 @@ class PredatorAgent(Agent):
         super().__init__(images, simulation, pos, move)
         self.move = pygame.Vector2(random.uniform(-1, 1), random.uniform(-1, 1))
         self.last_move = self.move
+        self.reproduction_cooldown: int = 0
         self.previous_state = PredatorState.WANDERING
         self.state = PredatorState.WANDERING
         self.speed = self.config.prey_speed
@@ -68,6 +69,9 @@ class PredatorAgent(Agent):
     def update(self):
         global PREDATOR_COUNTER, PREY_COUNTER
 
+        if self.reproduction_cooldown > 0:
+            self.reproduction_cooldown -= 1
+
         for agent in self.in_proximity_accuracy():
             if isinstance(agent[0], PreyAgent):
                 dist_to_prey = self.pos.distance_to(agent[0].pos)
@@ -75,10 +79,11 @@ class PredatorAgent(Agent):
                     self.food += self.config.predator_food_on_eat
                     agent[0].kill()
                     PREY_COUNTER -= 1
-                    if self.food > self.config.max_food:
+                    if self.food > self.config.max_food and self.reproduction_cooldown == 0:
                         self.food = self.config.max_food
                         self.reproduce()
                         PREDATOR_COUNTER += 1
+                        self.reproduction_cooldown = 200
                 if 10 < dist_to_prey <= 50:
                     self.state = PredatorState.CHASING
                     self.move = (agent[0].pos - self.pos).normalize()
@@ -118,6 +123,7 @@ class PreyAgent(Agent):
     def __init__(self, images, simulation, pos=None, move=None):
         super().__init__(images, simulation, pos, move)
         self.move = pygame.Vector2(random.uniform(-1, 1), random.uniform(-1, 1))
+        self.reproduction_cooldown: int = 0
         self.last_move = self.move
         self.previous_state = PreyState.WANDERING
         self.state = PreyState.WANDERING
@@ -134,6 +140,9 @@ class PreyAgent(Agent):
         nearest_plant = None
         min_pred_dist = float("inf")
         min_plant_dist = float("inf")
+
+        if self.reproduction_cooldown > 0:
+            self.reproduction_cooldown -= 1
 
         for agent in self.in_proximity_accuracy():
             other = agent[0]
@@ -159,10 +168,11 @@ class PreyAgent(Agent):
             # try to eat if close to plant
             if nearest_plant and self.pos.distance_to(nearest_plant.pos) <= 10:
                 self.food += self.config.prey_food_on_eat
-                if self.food > self.config.max_food:
+                if self.food > self.config.max_food and self.reproduction_cooldown == 0:
                     self.food = self.config.max_food
                     self.reproduce()
                     PREY_COUNTER += 1
+                    self.reproduction_cooldown = 200
                 nearest_plant.kill()
                 PLANT_COUNTER -= 1
 
