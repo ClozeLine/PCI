@@ -29,7 +29,7 @@ class PredatorPreyConfig(Config):
     # general
     max_food = 100
     start_food = max_food * 0.7
-    max_speed = 1
+    max_speed = 2
 
     # predator config
     predator_speed = 1
@@ -38,10 +38,10 @@ class PredatorPreyConfig(Config):
     predator_chasing_speed_increase = 1
 
     # prey config
-    prey_speed = 2
+    prey_speed = 1
     prey_food_decrease = 0.05
     prey_food_on_eat = 10
-    prey_fleeing_speed_increase = 1
+    prey_fleeing_speed_increase = 1.1
 
     # plant
     max_plants = 200
@@ -115,7 +115,7 @@ class PredatorAgent(Agent):
             self.move = self.move.normalize()
 
         food_factor = 0.8 + (1 - 0.8) * (self.food / self.config.max_food) ** 2
-        speed = food_factor
+        speed = 1
         if self.state == PredatorState.CHASING:
             speed *= self.config.predator_chasing_speed_increase
 
@@ -224,7 +224,7 @@ class PreyAgent(Agent):
 
     def calculate_speed(self):
         x = self.food / self.config.max_food
-        new_move = self.move * (0.6 + (1 - 0.6) * (x ** 2))
+        new_move = self.move #* (0.6 + (1 - 0.6) * (x ** 2))
         if self.state == PreyState.FLEEING:
             new_move *= self.config.prey_fleeing_speed_increase
         if new_move.length() > self.config.max_speed:
