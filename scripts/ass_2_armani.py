@@ -14,7 +14,7 @@ import matplotlib.pyplot as plt
 precomputed_angles = [random.uniform(0, 2 * numpy.pi) for _ in range(1000)]
 PLANT_COUNTER = 35
 PREY_COUNTER = 100
-PREDATOR_COUNTER = 10
+PREDATOR_COUNTER = 30
 
 database_prey = [
     {"frame": 0, "count": 100}
@@ -29,19 +29,19 @@ class PredatorPreyConfig(Config):
     # general
     max_food = 100
     start_food = max_food * 0.7
-    max_speed = 2
+    max_speed = 1
 
     # predator config
     predator_speed = 1
     predator_food_decrease = 0.05
     predator_food_on_eat = 20
-    predator_chasing_speed_increase = 1.3
+    predator_chasing_speed_increase = 1
 
     # prey config
     prey_speed = 2
     prey_food_decrease = 0.05
     prey_food_on_eat = 10
-    prey_fleeing_speed_increase = 1.5
+    prey_fleeing_speed_increase = 1
 
     # plant
     max_plants = 200
@@ -73,6 +73,7 @@ class PredatorAgent(Agent):
 
     def update(self):
         global PREDATOR_COUNTER, PREY_COUNTER
+        print(PREY_COUNTER)
 
         self.state = PredatorState.WANDERING
 
@@ -82,7 +83,7 @@ class PredatorAgent(Agent):
         for agent in self.in_proximity_accuracy():
             if isinstance(agent[0], PreyAgent):
                 dist_to_prey = self.pos.distance_to(agent[0].pos)
-                if dist_to_prey <= 10:
+                if dist_to_prey <= 10 and agent[0].alive:
                     self.food += self.config.predator_food_on_eat
                     agent[0].kill()
                     PREY_COUNTER -= 1
@@ -149,6 +150,7 @@ class PreyAgent(Agent):
         self.reproduction_cooldown = self.REPRO_COOLDOWN
         self.state = PreyState.WANDERING
         self.food = self.config.start_food
+        self.alive = True
 
     def update(self):
         global PLANT_COUNTER, PREY_COUNTER
@@ -244,6 +246,11 @@ class PreyAgent(Agent):
                 self.move = self.move.normalize()
         self.pos += self.calculate_speed()
 
+    def kill(self):
+        if self.alive:
+            self.alive = False
+            super().kill()
+
 
 class PlantAgent(Agent):
     config: PredatorPreyConfig
@@ -275,36 +282,29 @@ class PlantAgent(Agent):
 
 
 class PlantSpawner(PlantAgent):
-    """Immortal plant that reseeds the world whenever plants get too low."""
 
-    MIN_PLANTS = 15  # keep at least this many alive
-    BURST_SIZE = 5  # how many seeds to drop at once
-    CHECK_EVERY = 120  # ticks between checks  (~2 s at 60 fps)
+    MIN_PLANTS = 15
+    BURST_SIZE = 5
+    CHECK_EVERY = 120
 
     def update(self):
         global PLANT_COUNTER
 
-        # call PlantAgent.update() so the spawner can still reproduce normally
         super().update()
 
-        # run the seed-rain logic on schedule
         if self.counter % self.CHECK_EVERY == 0 and PLANT_COUNTER < self.MIN_PLANTS:
             seeds = min(self.BURST_SIZE,
                         self.config.max_plants - PLANT_COUNTER)
 
             for _ in range(seeds):
-                # clone myself            ↓ returns the new PlantAgent
                 new_plant = self.reproduce()
                 PLANT_COUNTER += 1
 
-                # scatter the seed randomly
                 new_plant.pos = pygame.Vector2(
                     random.randint(0, 750),
                     random.randint(0, 750)
                 )
 
-            # optional: reset the spawner’s counter so its own normal
-            # reproduction doesn’t immediately fire again
             self.counter = 0
 
 
@@ -317,7 +317,7 @@ class PlantSpawner(PlantAgent):
             radius=50,
             seed=1,
             fps_limit=60,
-            duration=1000),
+            duration=10000),
 
     )
 
