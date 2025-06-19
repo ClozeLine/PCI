@@ -10,13 +10,11 @@ from vi import Agent, Config, Simulation
 from pygame.math import Vector2
 import random
 from enum import Enum
+import polars as pl
 import pygame
 import numpy
-
 import polars as pl
 import matplotlib.pyplot as plt
-
-
 
 precomputed_angles = [random.uniform(0, 2 * numpy.pi) for _ in range(1000)]
 PLANT_COUNTER = 35
@@ -29,6 +27,7 @@ database_prey = [
 database_predator = [
     {"frame": 0, "count": 35}
 ]
+
 
 
 @dataclass
@@ -131,8 +130,6 @@ class PredatorAgent(Agent):
 
         self.last_move = self.move
         self.pos += self.calculate_speed()
-
-
 
 
 class PreyAgent(Agent):
@@ -264,33 +261,28 @@ class PlantAgent(Agent):
             self.counter = 0
         self.counter += 1
 
-
-
     def change_position(self):
         pass
 
 
-simulation = Simulation(PredatorPreyConfig(image_rotation=True, movement_speed=1, radius=50, seed=1, fps_limit=60, ))
+(
+    Simulation(
+        # TODO: Modify `movement_speed` and `radius` and observe the change in behaviour.
+        PredatorPreyConfig(image_rotation=True, movement_speed=1, radius=50, seed=3, fps_limit=60, duration=900),  # duration=10 *60
 
+    )
 
-simulation.batch_spawn_agents(PREDATOR_COUNTER, PredatorAgent, images=["../files/Target1.png", "../files/Target6.png"])
-simulation.batch_spawn_agents(PREY_COUNTER, PreyAgent, images=["../files/triangle.png", "../files/Target5.png"])
-simulation.batch_spawn_agents(PLANT_COUNTER, PlantAgent, images=["../files/plant.png"])
-
-if PREDATOR_COUNTER == 0:
-    simulation.stop()
-
-simulation.run()
-
-
-
-
+    .batch_spawn_agents(PREDATOR_COUNTER, PredatorAgent, images=["../files/Target1.png", "../files/Target6.png"])
+    .batch_spawn_agents(PREY_COUNTER, PreyAgent, images=["../files/triangle.png", "../files/Target5.png"])
+    .batch_spawn_agents(PLANT_COUNTER, PlantAgent, images=["../files/plant.png"])
+    .run()
+)
 
 df1 = pl.DataFrame(database_prey)
 df2 = pl.DataFrame(database_predator)
 
-plt.plot(df1["frame"], df1["value"], label="Stat A (value)")
-plt.plot(df2["frame"], df2["count"], label="Stat B (count)")
+plt.plot(df1["frame"], df1["count"], label="Stat A (Preys)")
+plt.plot(df2["frame"], df2["count"], label="Stat B (Predators)")
 
 plt.xlabel("Frame")
 plt.ylabel("Value")
@@ -298,6 +290,8 @@ plt.title("Two Stats Over Time")
 plt.legend()
 plt.grid(True)
 plt.tight_layout()
+
+plt.savefig("agent_count_plot.png")
 
 # countDataFrame = pl.DataFrame(countList)
 # print(countDataFrame)

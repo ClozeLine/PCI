@@ -16,6 +16,13 @@ PLANT_COUNTER = 35
 PREY_COUNTER = 100
 PREDATOR_COUNTER = 10
 
+database_prey = [
+    {"frame": 0, "count": 100}
+]
+database_predator = [
+    {"frame": 0, "count": 35}
+]
+
 
 @dataclass
 class PredatorPreyConfig(Config):
@@ -97,6 +104,10 @@ class PredatorAgent(Agent):
 
         self.food -= self.config.predator_food_decrease
         self.previous_state = self.state
+
+        last_frame_nr = database_predator[-1]["frame"]
+        new_entry = {"frame": last_frame_nr + 1, "count": PREDATOR_COUNTER}
+        database_predator.append(new_entry)
 
     def calculate_speed(self):
         if self.move.length() > 0:
@@ -205,6 +216,10 @@ class PreyAgent(Agent):
         if self.reproduction_cooldown > 0:
             self.reproduction_cooldown -= 1
 
+        last_frame_nr = database_prey[-1]["frame"]
+        new_entry = {"frame": last_frame_nr + 1, "count": PREY_COUNTER}
+        database_prey.append(new_entry)
+
     def calculate_speed(self):
         x = self.food / self.config.max_food
         new_move = self.move * (0.6 + (1 - 0.6) * (x ** 2))
@@ -302,7 +317,7 @@ class PlantSpawner(PlantAgent):
             radius=50,
             seed=1,
             fps_limit=60,
-            duration=10000),
+            duration=1000),
 
     )
 
@@ -311,6 +326,21 @@ class PlantSpawner(PlantAgent):
     .batch_spawn_agents(PLANT_COUNTER, PlantAgent, images=["../files/plant.png"])
     .run()
 )
+
+df1 = pl.DataFrame(database_prey)
+df2 = pl.DataFrame(database_predator)
+
+plt.plot(df1["frame"], df1["count"], label="Stat A (Preys)")
+plt.plot(df2["frame"], df2["count"], label="Stat B (Predators)")
+
+plt.xlabel("Frame")
+plt.ylabel("Value")
+plt.title("Two Stats Over Time")
+plt.legend()
+plt.grid(True)
+plt.tight_layout()
+
+plt.savefig("agent_count_plot.png")
 
 # countDataFrame = pl.DataFrame(countList)
 # print(countDataFrame)
