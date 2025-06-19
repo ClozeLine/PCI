@@ -1,8 +1,4 @@
 # animal's speed depends on their energy level
-# genetic selection: start with random, see who gets eliminated. Some factors could be:
-# - max speed
-# - appetite
-# - willingness to breed (rabbits)
 # rabbit can eat poisonous berries, get infected, and contaminate fox (if eaten)
 
 from dataclasses import dataclass
@@ -13,11 +9,12 @@ from enum import Enum
 import polars as pl
 import pygame
 import numpy
+import matplotlib.pyplot as plt
 
 precomputed_angles = [random.uniform(0, 2 * numpy.pi) for _ in range(1000)]
 PLANT_COUNTER = 35
 PREY_COUNTER = 100
-PREDATOR_COUNTER = 20
+PREDATOR_COUNTER = 10
 
 
 @dataclass
@@ -25,11 +22,11 @@ class PredatorPreyConfig(Config):
     # general
     max_food = 100
     start_food = max_food * 0.7
-    max_speed = 3
+    max_speed = 2
 
     # predator config
     predator_speed = 1
-    predator_food_decrease = 0.1
+    predator_food_decrease = 0.05
     predator_food_on_eat = 20
     predator_chasing_speed_increase = 1.3
 
@@ -70,6 +67,8 @@ class PredatorAgent(Agent):
     def update(self):
         global PREDATOR_COUNTER, PREY_COUNTER
 
+        self.state = PredatorState.WANDERING
+
         if self.reproduction_cooldown > 0:
             self.reproduction_cooldown -= 1
 
@@ -80,9 +79,11 @@ class PredatorAgent(Agent):
                     self.food += self.config.predator_food_on_eat
                     agent[0].kill()
                     PREY_COUNTER -= 1
-                    if self.food > self.config.max_food and self.reproduction_cooldown == 0:
+                    if (self.food > self.config.max_food
+                            and self.reproduction_cooldown == 0 and PREY_COUNTER <= 100):
                         self.food = self.config.max_food
                         self.reproduce()
+                        print('y')
                         PREDATOR_COUNTER += 1
                         self.reproduction_cooldown = 200
                 if 10 < dist_to_prey <= 50:
@@ -98,11 +99,17 @@ class PredatorAgent(Agent):
         self.previous_state = self.state
 
     def calculate_speed(self):
-        x = self.food / self.config.max_food
-        new_move = self.move * (0.8 + (1 - 0.8) * (x ** 2))
+        if self.move.length() > 0:
+            self.move = self.move.normalize()
+
+        food_factor = 0.8 + (1 - 0.8) * (self.food / self.config.max_food) ** 2
+        speed = food_factor
         if self.state == PredatorState.CHASING:
-            new_move *= self.config.predator_chasing_speed_increase
-        return new_move
+            speed *= self.config.predator_chasing_speed_increase
+
+        speed = min(speed, self.config.max_speed)
+
+        return self.move * speed
 
     def change_position(self):
         self.there_is_no_escape()
@@ -120,7 +127,8 @@ class PredatorAgent(Agent):
 
 class PreyAgent(Agent):
     config: PredatorPreyConfig
-    HUNGER_THRESHOLD = 0.85
+    HUNGER_THRESHOLD = 0.6
+    BREED_THRESHOLD = PredatorPreyConfig.max_food * 0.6
     REPRO_COOLDOWN = 300
     REPRO_COST = 35
 
@@ -181,8 +189,8 @@ class PreyAgent(Agent):
             self.state = PreyState.WANDERING
 
         # reproduce
-        if (self.food >= self.config.max_food and
-                self.reproduction_cooldown == 0):
+        if (self.food >= self.BREED_THRESHOLD and
+                self.reproduction_cooldown == 0 and PREY_COUNTER <= 200):
             self.food -= self.REPRO_COST
             self.reproduce()
             PREY_COUNTER += 1
@@ -194,11 +202,16 @@ class PreyAgent(Agent):
             self.kill()
             PREY_COUNTER -= 1
 
+        if self.reproduction_cooldown > 0:
+            self.reproduction_cooldown -= 1
+
     def calculate_speed(self):
         x = self.food / self.config.max_food
         new_move = self.move * (0.6 + (1 - 0.6) * (x ** 2))
         if self.state == PreyState.FLEEING:
             new_move *= self.config.prey_fleeing_speed_increase
+        if new_move.length() > self.config.max_speed:
+            new_move = new_move.normalize() * self.config.max_speed
         return new_move
 
     def food_ratio(self):
@@ -224,7 +237,7 @@ class PlantAgent(Agent):
         super().__init__(images, simulation, pos, move)
         self.counter = 0
         self.angle_index = 0
-        self.reproduction_threshold = random.randint(50, 300)
+        self.reproduction_threshold = random.randint(8, 25)
         self.eaten = False
 
     def update(self):
@@ -232,7 +245,6 @@ class PlantAgent(Agent):
         if self.counter >= self.reproduction_threshold and PLANT_COUNTER < self.config.max_plants:
             self.reproduce()
             PLANT_COUNTER += 1
-            print(PLANT_COUNTER)
 
             if random.random() < 0.7:
                 angle = random.uniform(0, 2 * numpy.pi)
@@ -242,15 +254,55 @@ class PlantAgent(Agent):
                 self.pos = Vector2(random.randint(0, 750), random.randint(0, 750))
             self.counter = 0
         self.counter += 1
+        print(type(self.simulation))
+        if self.id == 0 and self.simulation.ticks % 120 == 0:
+            if PLANT_COUNTER < 15:
+                for _ in range(5):
+                    self.simulation.spawn_agent(
+                        PlantAgent,
+                        pos=Vector2(random.randint(0, 750), random.randint(0, 750)),
+                        images=["../files/plant.png"]
+                    )
+                    PLANT_COUNTER += 1
 
     def change_position(self):
         pass
 
 
+class PlantSpawner(Agent):
+    """Invisible caretaker that keeps at least MIN_PLANTS alive."""
+    config: PredatorPreyConfig
+    MIN_PLANTS   = 15          # keep this many alive
+    CHECK_EVERY  = 120         # ticks between checks    (~2 s at 60 fps)
+    BURST_SIZE   = 5           # how many seeds to drop
+
+    def update(self):
+        global PLANT_COUNTER
+        # run the check on schedule
+        if self.simulation.ticks % self.CHECK_EVERY == 0:
+            if PLANT_COUNTER < self.MIN_PLANTS:
+                seeds = min(self.BURST_SIZE,
+                            self.config.max_plants - PLANT_COUNTER)
+                for _ in range(seeds):
+                    self.simulation.spawn_agent(
+                        PlantAgent,
+                        pos=Vector2(random.randint(0, 750),
+                                    random.randint(0, 750)),
+                        images=["../files/plant.png"]
+                    )
+                    PLANT_COUNTER += 1
+
+
 (
     Simulation(
         # TODO: Modify `movement_speed` and `radius` and observe the change in behaviour.
-        PredatorPreyConfig(image_rotation=True, movement_speed=1, radius=50, seed=1, fps_limit=60, ),  # duration=10 *60
+        PredatorPreyConfig(
+            image_rotation=True,
+            movement_speed=1,
+            radius=50,
+            seed=1,
+            fps_limit=60,
+            duration=10000),
 
     )
 
