@@ -182,7 +182,7 @@ class PlantAgent(Agent):
 data = (
     Simulation(
         # TODO: Modify `movement_speed` and `radius` and observe the change in behaviour.
-        PredatorPreyConfig(image_rotation=True, movement_speed=1, radius=50, seed=1, fps_limit=60, duration=6000)
+        PredatorPreyConfig(image_rotation=True, movement_speed=1, radius=50, seed=1, fps_limit=60, duration=2000)
         
     )
     
