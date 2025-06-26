@@ -137,7 +137,7 @@ class PreyAgent(Agent):
 
                     reproduction_rate = preys / (predators + preys)
 
-                    if self.food >= 100 and (random.random() > reproduction_rate + 0.2):
+                    if self.food >= 100 and (random.random() > reproduction_rate - 0.2):
                         self.food -= 30
                         self.reproduce()
                     other[0].kill()
@@ -186,7 +186,7 @@ class PlantAgent(Agent):
 
     def update(self):
         global PLANTS
-        if self.counter == self.maxCount and PLANTS <= 150:
+        if self.counter == self.maxCount and PLANTS <= 250:
             self.reproduce()
             PLANTS += 1
 
