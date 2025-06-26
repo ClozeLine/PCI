@@ -7,14 +7,15 @@ from pygame.math import Vector2
 import random
 from enum import Enum
 import polars as pl
+import seaborn as sns
 import pygame
 import numpy
 import matplotlib.pyplot as plt
 
 precomputed_angles = [random.uniform(0, 2 * numpy.pi) for _ in range(1000)]
 PLANT_COUNTER = 35
-PREY_COUNTER = 20
-PREDATOR_COUNTER = 10
+PREY_COUNTER = 60
+PREDATOR_COUNTER = 20
 
 database_prey = [
     {"frame": 0, "count": PREY_COUNTER}
@@ -27,9 +28,9 @@ database_predator = [
 @dataclass
 class PredatorPreyConfig(Config):
     # general
-    max_food = 100
-    start_food = max_food * 0.7
+    start_food = 100
     max_speed = 2
+    reproduction_cooldown = 200
 
     # predator config
     predator_speed = 1
@@ -65,20 +66,18 @@ class PredatorAgent(Agent):
         super().__init__(images, simulation, pos, move)
         self.move = pygame.Vector2(random.uniform(-1, 1), random.uniform(-1, 1))
         self.last_move = self.move
-        self.reproduction_cooldown: int = 0
+        self.reproduction_cooldown: int = self.config.reproduction_cooldown
         self.previous_state = PredatorState.WANDERING
         self.state = PredatorState.WANDERING
         self.speed = self.config.prey_speed
-        self.food = self.config.max_food
+        self.food = self.config.start_food
 
     def update(self):
         global PREDATOR_COUNTER, PREY_COUNTER
         print(PREY_COUNTER)
 
         self.state = PredatorState.WANDERING
-
-        if self.reproduction_cooldown > 0:
-            self.reproduction_cooldown -= 1
+        self.reproduction_cooldown = max(self.reproduction_cooldown - 1, 0)
 
         for agent in self.in_proximity_accuracy():
             if isinstance(agent[0], PreyAgent):
@@ -87,13 +86,11 @@ class PredatorAgent(Agent):
                     self.food += self.config.predator_food_on_eat
                     agent[0].kill()
                     PREY_COUNTER -= 1
-                    if (self.food > self.config.max_food
+                    if (self.food > 120
                             and self.reproduction_cooldown == 0 and PREY_COUNTER <= 100):
-                        self.food = self.config.max_food
                         self.reproduce()
-                        print('y')
                         PREDATOR_COUNTER += 1
-                        self.reproduction_cooldown = 200
+                        self.reproduction_cooldown = self.config.reproduction_cooldown
                 if 10 < dist_to_prey <= 50:
                     self.state = PredatorState.CHASING
                     self.move = (agent[0].pos - self.pos).normalize()
@@ -117,7 +114,6 @@ class PredatorAgent(Agent):
         if self.move.length() > 0:
             self.move = self.move.normalize()
 
-        food_factor = 0.8 + (1 - 0.8) * (self.food / self.config.max_food) ** 2
         speed = 1
         if self.state == PredatorState.CHASING:
             speed *= self.config.predator_chasing_speed_increase
@@ -143,14 +139,12 @@ class PredatorAgent(Agent):
 class PreyAgent(Agent):
     config: PredatorPreyConfig
     HUNGER_THRESHOLD = 0.6
-    BREED_THRESHOLD = PredatorPreyConfig.max_food * 0.6
-    REPRO_COOLDOWN = 300
     REPRO_COST = 35
 
     def __init__(self, images, simulation, pos=None, move=None):
         super().__init__(images, simulation, pos, move)
         self.move = pygame.Vector2(random.uniform(-1, 1), random.uniform(-1, 1))
-        self.reproduction_cooldown = self.REPRO_COOLDOWN
+        self.reproduction_cooldown = self.config.reproduction_cooldown
         self.state = PreyState.WANDERING
         self.food = self.config.start_food
         self.alive = True
@@ -159,8 +153,7 @@ class PreyAgent(Agent):
         global PLANT_COUNTER, PREY_COUNTER
 
         # reproduction cooldown
-        if self.reproduction_cooldown:
-            self.reproduction_cooldown -= 1
+        self.reproduction_cooldown = max(self.reproduction_cooldown - 1, 0)
 
         predator, plant = None, None
         pred_dist, plant_dist = float("inf"), float("inf")
@@ -195,31 +188,25 @@ class PreyAgent(Agent):
                 plant.kill()
                 PLANT_COUNTER -= 1
 
-                self.food = min(
-                    self.config.max_food,
-                    self.food + self.config.prey_food_on_eat
-                )
+                self.food += self.config.prey_food_on_eat
 
         # wander
         else:
             self.state = PreyState.WANDERING
 
         # reproduce
-        if (self.food >= self.BREED_THRESHOLD and
+        if (self.food >= 100 and
                 self.reproduction_cooldown == 0 and PREY_COUNTER <= 200):
             self.food -= self.REPRO_COST
             self.reproduce()
             PREY_COUNTER += 1
-            self.reproduction_cooldown = self.REPRO_COOLDOWN
+            self.reproduction_cooldown = self.config.reproduction_cooldown
 
         # maybe die
         self.food -= self.config.prey_food_decrease
         if self.food <= 0:
             self.kill()
             PREY_COUNTER -= 1
-
-        if self.reproduction_cooldown > 0:
-            self.reproduction_cooldown -= 1
 
         last_frame_nr = database_prey[-1]["frame"]
         new_entry = {"frame": last_frame_nr + 1, "count": PREY_COUNTER}
@@ -229,8 +216,7 @@ class PreyAgent(Agent):
         self.save_data("PreyCount", PREY_COUNTER)
 
     def calculate_speed(self):
-        x = self.food / self.config.max_food
-        new_move = self.move #* (0.6 + (1 - 0.6) * (x ** 2))
+        new_move = self.move
         if self.state == PreyState.FLEEING:
             new_move *= self.config.prey_fleeing_speed_increase
         if new_move.length() > self.config.max_speed:
@@ -238,7 +224,7 @@ class PreyAgent(Agent):
         return new_move
 
     def food_ratio(self):
-        return self.food / self.config.max_food
+        return self.food / self.config.start_food
 
     def change_position(self):
         self.there_is_no_escape()
@@ -317,7 +303,7 @@ class PlantSpawner(PlantAgent):
             self.counter = 0
 
 
-df = (
+data = (
     Simulation(
         # TODO: Modify `movement_speed` and `radius` and observe the change in behaviour.
         PredatorPreyConfig(
@@ -336,27 +322,33 @@ df = (
     .run().snapshots
 )
 
-filtered_df = df.filter(pl.col("id") == 1)
+frame_window = 10
+summary = (
+    data.filter(pl.col("frame") % 60 == 0)
+        .with_columns((pl.col("frame") // 60).alias("second"))
+        .group_by("second")
+        .agg([
+            pl.col("agent").filter(pl.col("agent") == "Predator").count()
+                            .alias("predator_count"),
+            pl.col("agent").filter(pl.col("agent") == "Prey").count()
+                            .alias("prey_count"),
+        ])
+        .sort("second")
+        .with_columns([
+            (pl.col("predator_count") * 2)
+                .alias("predator_plot"),
+            (pl.col("predator_count") * 2)
+                .rolling_mean(window_size=frame_window, min_samples=1)
+                .alias("predator_smooth"),
+            pl.col("prey_count")
+                .rolling_mean(window_size=frame_window, min_samples=1)
+                .alias("prey_smooth"),
+        ])
+)
 
-
-print(filtered_df)
-
-plt.figure(figsize=(10, 6))
-
-# Plot PredCount
-plt.plot(filtered_df['frame'], filtered_df['PredCount'], label='PredCount')
-
-# Plot PreyCount
-plt.plot(filtered_df['frame'], filtered_df['PreyCount'], label='PreyCount')
-
-# Add labels and title
-plt.xlabel('Frame')
+sns.lineplot(summary, x='second', y='predator_smooth', label='Predator (x2)')
+sns.lineplot(summary, x='second', y='prey_smooth',    label='Prey')
+plt.xlabel('Second')
 plt.ylabel('Count')
-plt.title('Predator and Prey Counts Over Time')
 plt.legend()
-plt.grid(True)
-plt.tight_layout()
-plt.savefig("agent_count")
-
-print(PREDATOR_COUNTER)
-print(PREY_COUNTER)
+plt.show()

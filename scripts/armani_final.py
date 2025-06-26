@@ -2,8 +2,6 @@ from dataclasses import dataclass
 from vi import Agent, Config, Simulation, probability
 from pygame.math import Vector2
 import random
-
-import seaborn as sns
 import matplotlib.pyplot as plt
 
 import polars as pl
@@ -21,7 +19,7 @@ class PredatorPreyConfig(Config):
     predator_speed = 1
 
     pred_food_decrease = 0.2
-    prey_food_decrease = 0.005
+    prey_food_decrease = 0.05
 
     plant_calories = 20
     prey_calories = 35
@@ -220,6 +218,11 @@ class PlantAgent(Agent):
         self.there_is_no_escape()
 
 
+class WatcherAgent(Agent):
+    def update(self):
+        self.save_data("agent", "Watcher")
+
+
 data = (
     Simulation(
         # TODO: Modify `movement_speed` and `radius` and observe the change in behaviour.
@@ -227,10 +230,13 @@ data = (
 
     )
     .spawn_site("../files/circle.png", 185, 185)
+    #.spawn_site("../files/circle.png", 560, 185)
     .spawn_site("../files/circle.png", 560, 560)
+    #.spawn_site("../files/circle.png", 185, 560)
     .batch_spawn_agents(10, PredatorAgent, images=["../files/Target1.png", "../files/Target6.png"])
     .batch_spawn_agents(100, PreyAgent, images=["../files/triangle.png", "../files/Target5.png"])
     .batch_spawn_agents(PLANTS, PlantAgent, images=["../files/plant.png"])
+    .batch_spawn_agents(1, WatcherAgent, images=["../files/square (1).jpeg"])
     .run()
     .snapshots
 )
@@ -238,19 +244,19 @@ data = (
 frame_window = 10
 summary = (
     data.filter(pl.col("frame") % 60 == 0)
-        .with_columns((pl.col("frame") // 60).alias("second"))
-        .group_by("second")
+        .with_columns((pl.col("frame")).alias("frame"))
+        .group_by("frame")
         .agg([
             pl.col("agent").filter(pl.col("agent") == "Predator").count()
                             .alias("predator_count"),
             pl.col("agent").filter(pl.col("agent") == "Prey").count()
                             .alias("prey_count"),
         ])
-        .sort("second")
+        .sort("frame")
         .with_columns([
-            (pl.col("predator_count") * 2)
+            (pl.col("predator_count") * 4)
                 .alias("predator_plot"),
-            (pl.col("predator_count") * 2)
+            (pl.col("predator_count") * 4)
                 .rolling_mean(window_size=frame_window, min_samples=1)
                 .alias("predator_smooth"),
             pl.col("prey_count")
@@ -259,9 +265,10 @@ summary = (
         ])
 )
 
-sns.lineplot(summary, x='second', y='predator_smooth', label='Predator (x2, smooth)')
-sns.lineplot(summary, x='second', y='prey_smooth',    label='Prey (smooth)')
-plt.xlabel('Second')
+sns.lineplot(summary, x='frame', y='predator_smooth', label='Predator (x4)')
+sns.lineplot(summary, x='frame', y='prey_smooth',    label='Prey')
+plt.xlabel('Frame')
 plt.ylabel('Count')
+plt.ylim(top=200)
 plt.legend()
 plt.show()
